@@ -352,8 +352,9 @@ void app_main(void)
 {
     ESP_ERROR_CHECK(i2c_master_init());
 
-    int a = 100;
-    float b = 3.145678;
+    int a = -100;
+    float b = -3.145678;
+    int counter = 0;
     lcd_init();
     lcd_clear();
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -365,6 +366,11 @@ void app_main(void)
     lcd_send_float(b, 2);
 
     while (1) {
+        lcd_clear();
+        lcd_put_cur(0, 0);
+        lcd_send_string("Count: ");
+        lcd_send_int(counter);
+        counter++;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
