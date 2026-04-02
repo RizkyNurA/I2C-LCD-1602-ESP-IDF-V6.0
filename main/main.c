@@ -48,25 +48,6 @@ static esp_err_t lcd_i2c_write(uint8_t *data, size_t len)
     return i2c_master_transmit(lcd_dev, data, len, -1);
 }
 
-void lcd_send_data_lawas(uint8_t data)
-{
-    esp_err_t err;
-    uint8_t data_u = data & 0xF0;
-    uint8_t data_l = (data << 4) & 0xF0;
-
-    uint8_t data_t[4] = {
-        data_u | 0b00001101 | LCD_BACKLIGHT,  // EN=1, RS=1
-        data_u | 0b00001001 | LCD_BACKLIGHT,  // EN=0, RS=1
-        data_l | 0b00001101 | LCD_BACKLIGHT,
-        data_l | 0b00001001 | LCD_BACKLIGHT
-    };
-
-    err = lcd_i2c_write(data_t, 4);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "I2C data error: %d", err);
-    }
-}
-
 void lcd_send_data(uint8_t data)
 {
     uint8_t data_u = data & 0xF0;
@@ -82,24 +63,6 @@ void lcd_send_data(uint8_t data)
     for (int i = 0; i < 4; i++) {
         lcd_i2c_write(&data_t[i], 1);
         esp_rom_delay_us(200);
-    }
-}
-
-void lcd_send_cmd_lawas(uint8_t cmd)
-{
-    esp_err_t err;
-    uint8_t data_u = cmd & 0xF0;
-    uint8_t data_l = (cmd << 4) & 0xF0;
-    uint8_t data_t[4] = {
-        data_u | 0b00001100 | LCD_BACKLIGHT,  // EN=1, RS=0
-        data_u | 0b00001000 | LCD_BACKLIGHT,  // EN=0, RS=0
-        data_l | 0b00001100 | LCD_BACKLIGHT,
-        data_l | 0b00001000 | LCD_BACKLIGHT
-    };
-
-    err = lcd_i2c_write(data_t, 4);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "I2C command error: %d", err);
     }
 }
 
@@ -121,80 +84,6 @@ void lcd_send_cmd(uint8_t cmd)
     }
 }
 
-void lcd_init_lawas_1 (void)
-{
-	// 4 bit initialisation
-	usleep(50000);  // wait for >40ms
-	lcd_send_cmd (0x30);
-	usleep(4500);  // wait for >4.1ms
-	lcd_send_cmd (0x30);
-	usleep(200);  // wait for >100us
-	lcd_send_cmd (0x30);
-	usleep(200);
-	lcd_send_cmd (0x20);  // 4bit mode
-	usleep(200);
-
-  // dislay initialisation
-	lcd_send_cmd (0x28); // Function set --> DL=0 (4 bit mode), N = 1 (2 line display) F = 0 (5x8 characters)
-	vTaskDelay(pdMS_TO_TICKS(1));
-	lcd_send_cmd (0x08); //Display on/off control --> D=0,C=0, B=0  ---> display off
-	vTaskDelay(pdMS_TO_TICKS(1));
-	lcd_send_cmd (0x01);  // clear display
-	vTaskDelay(pdMS_TO_TICKS(1));
-	vTaskDelay(pdMS_TO_TICKS(1));
-	lcd_send_cmd (0x06); //Entry mode set --> I/D = 1 (increment cursor) & S = 0 (no shift)
-	vTaskDelay(pdMS_TO_TICKS(1));;
-	lcd_send_cmd (0x0C); //Display on/off control --> D = 1, C and B = 0. (Cursor and blink, last two bits)
-	vTaskDelay(pdMS_TO_TICKS(2));
-}
-
-void lcd_init_lawas(void)
-{
-    vTaskDelay(pdMS_TO_TICKS(50)); // >40ms
-
-    // Force 8-bit mode 3x
-    lcd_send_cmd(0x30);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x30);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x30);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    // Switch ke 4-bit
-    lcd_send_cmd(0x20);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    // Sekarang baru aman pakai normal command
-    lcd_send_cmd(0x28); // 4-bit, 2 line
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x08); // display off
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x01); // clear
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x06); // entry mode
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x0C); // display on
-    vTaskDelay(pdMS_TO_TICKS(5));
-}
-
-void lcd_send_nibble_lawas(uint8_t nibble)
-{
-    uint8_t data = (nibble & 0xF0) | LCD_BACKLIGHT;
-
-    uint8_t seq[2] = {
-        data | 0b00001100, // EN=1
-        data | 0b00001000  // EN=0
-    };
-
-    lcd_i2c_write(seq, 2);
-}
-
 void lcd_send_nibble(uint8_t nibble)
 {
     uint8_t data = (nibble & 0xF0) | LCD_BACKLIGHT;
@@ -206,41 +95,6 @@ void lcd_send_nibble(uint8_t nibble)
 
     lcd_i2c_write(seq, 2);
     esp_rom_delay_us(50);
-}
-
-void lcd_init_new(void)
-{
-    vTaskDelay(pdMS_TO_TICKS(50)); // >40ms
-
-    // INIT HARUS pakai nibble langsung
-    lcd_send_nibble(0x30);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_nibble(0x30);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_nibble(0x30);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    // masuk 4-bit
-    lcd_send_nibble(0x20);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    // baru pakai normal command
-    lcd_send_cmd(0x28);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x08);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x01);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x06);
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    lcd_send_cmd(0x0C);
-    vTaskDelay(pdMS_TO_TICKS(5));
 }
 
 void lcd_init(void)
@@ -265,6 +119,7 @@ void lcd_init(void)
     vTaskDelay(pdMS_TO_TICKS(2));
     lcd_send_cmd(0x06);
     lcd_send_cmd(0x0C);
+    vTaskDelay(pdMS_TO_TICKS(10));
 }
 
 void lcd_put_cur(int row, int col)
@@ -356,8 +211,8 @@ void app_main(void)
     float b = -3.145678;
     int counter = 0;
     lcd_init();
+    
     lcd_clear();
-    vTaskDelay(pdMS_TO_TICKS(10));
     lcd_put_cur(0, 0);
     lcd_send_string("HELLO ");
     lcd_send_int(a);
