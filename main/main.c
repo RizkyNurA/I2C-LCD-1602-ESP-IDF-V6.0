@@ -48,17 +48,17 @@ static esp_err_t lcd_i2c_write(uint8_t *data, size_t len)
     return i2c_master_transmit(lcd_dev, data, len, -1);
 }
 
-void lcd_send_data(uint8_t data)
+void lcd_send_data_lawas(uint8_t data)
 {
     esp_err_t err;
     uint8_t data_u = data & 0xF0;
     uint8_t data_l = (data << 4) & 0xF0;
 
     uint8_t data_t[4] = {
-        data_u | 0b00000101 | LCD_BACKLIGHT,  // EN=1, RS=1
-        data_u | 0b00000001 | LCD_BACKLIGHT,  // EN=0, RS=1
-        data_l | 0b00000101 | LCD_BACKLIGHT,
-        data_l | 0b00000001 | LCD_BACKLIGHT
+        data_u | 0b00001101 | LCD_BACKLIGHT,  // EN=1, RS=1
+        data_u | 0b00001001 | LCD_BACKLIGHT,  // EN=0, RS=1
+        data_l | 0b00001101 | LCD_BACKLIGHT,
+        data_l | 0b00001001 | LCD_BACKLIGHT
     };
 
     err = lcd_i2c_write(data_t, 4);
@@ -67,16 +67,34 @@ void lcd_send_data(uint8_t data)
     }
 }
 
-void lcd_send_cmd(uint8_t cmd)
+void lcd_send_data(uint8_t data)
+{
+    uint8_t data_u = data & 0xF0;
+    uint8_t data_l = (data << 4) & 0xF0;
+
+    uint8_t data_t[4] = {
+        data_u | 0b00001101 | LCD_BACKLIGHT,  // RS=1
+        data_u | 0b00001001 | LCD_BACKLIGHT,
+        data_l | 0b00001101 | LCD_BACKLIGHT,
+        data_l | 0b00001001 | LCD_BACKLIGHT
+    };
+
+    for (int i = 0; i < 4; i++) {
+        lcd_i2c_write(&data_t[i], 1);
+        esp_rom_delay_us(50);
+    }
+}
+
+void lcd_send_cmd_lawas(uint8_t cmd)
 {
     esp_err_t err;
     uint8_t data_u = cmd & 0xF0;
     uint8_t data_l = (cmd << 4) & 0xF0;
     uint8_t data_t[4] = {
-        data_u | 0b00000100 | LCD_BACKLIGHT,  // EN=1, RS=0
-        data_u | 0b00000000 | LCD_BACKLIGHT,  // EN=0, RS=0
-        data_l | 0b00000100 | LCD_BACKLIGHT,
-        data_l | 0b00000000 | LCD_BACKLIGHT
+        data_u | 0b00001100 | LCD_BACKLIGHT,  // EN=1, RS=0
+        data_u | 0b00001000 | LCD_BACKLIGHT,  // EN=0, RS=0
+        data_l | 0b00001100 | LCD_BACKLIGHT,
+        data_l | 0b00001000 | LCD_BACKLIGHT
     };
 
     err = lcd_i2c_write(data_t, 4);
@@ -85,7 +103,25 @@ void lcd_send_cmd(uint8_t cmd)
     }
 }
 
-void lcd_init (void)
+void lcd_send_cmd(uint8_t cmd)
+{
+    uint8_t data_u = cmd & 0xF0;
+    uint8_t data_l = (cmd << 4) & 0xF0;
+
+    uint8_t data_t[4] = { 
+        data_u | 0b00001100 | LCD_BACKLIGHT,  // EN=1
+        data_u | 0b00001000 | LCD_BACKLIGHT,  // EN=0
+        data_l | 0b00001100 | LCD_BACKLIGHT,
+        data_l | 0b00001000 | LCD_BACKLIGHT
+    };
+
+    for (int i = 0; i < 4; i++) {
+        lcd_i2c_write(&data_t[i], 1);
+        esp_rom_delay_us(50);
+    }
+}
+
+void lcd_init_lawas_1 (void)
 {
 	// 4 bit initialisation
 	usleep(50000);  // wait for >40ms
@@ -110,6 +146,125 @@ void lcd_init (void)
 	vTaskDelay(pdMS_TO_TICKS(1));;
 	lcd_send_cmd (0x0C); //Display on/off control --> D = 1, C and B = 0. (Cursor and blink, last two bits)
 	vTaskDelay(pdMS_TO_TICKS(2));
+}
+
+void lcd_init_lawas(void)
+{
+    vTaskDelay(pdMS_TO_TICKS(50)); // >40ms
+
+    // Force 8-bit mode 3x
+    lcd_send_cmd(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // Switch ke 4-bit
+    lcd_send_cmd(0x20);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // Sekarang baru aman pakai normal command
+    lcd_send_cmd(0x28); // 4-bit, 2 line
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x08); // display off
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x01); // clear
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x06); // entry mode
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x0C); // display on
+    vTaskDelay(pdMS_TO_TICKS(5));
+}
+
+void lcd_send_nibble_lawas(uint8_t nibble)
+{
+    uint8_t data = (nibble & 0xF0) | LCD_BACKLIGHT;
+
+    uint8_t seq[2] = {
+        data | 0b00001100, // EN=1
+        data | 0b00001000  // EN=0
+    };
+
+    lcd_i2c_write(seq, 2);
+}
+
+void lcd_send_nibble(uint8_t nibble)
+{
+    uint8_t data = (nibble & 0xF0) | LCD_BACKLIGHT;
+
+    uint8_t seq[2] = {
+        data | 0b00000100, // EN=1
+        data | 0b00000000  // EN=0
+    };
+
+    lcd_i2c_write(seq, 2);
+    esp_rom_delay_us(50);
+}
+
+void lcd_init_new(void)
+{
+    vTaskDelay(pdMS_TO_TICKS(50)); // >40ms
+
+    // INIT HARUS pakai nibble langsung
+    lcd_send_nibble(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_nibble(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_nibble(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // masuk 4-bit
+    lcd_send_nibble(0x20);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // baru pakai normal command
+    lcd_send_cmd(0x28);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x08);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x01);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x06);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x0C);
+    vTaskDelay(pdMS_TO_TICKS(5));
+}
+
+void lcd_init(void)
+{
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    lcd_send_nibble(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_nibble(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_nibble(0x30);
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_nibble(0x20); // masuk 4-bit
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    lcd_send_cmd(0x28);
+    lcd_send_cmd(0x08);
+    lcd_send_cmd(0x01);
+    vTaskDelay(pdMS_TO_TICKS(2));
+    lcd_send_cmd(0x06);
+    lcd_send_cmd(0x0C);
 }
 
 void lcd_put_cur(int row, int col)
@@ -141,14 +296,12 @@ void lcd_clear(void)
 void app_main(void)
 {
     ESP_ERROR_CHECK(i2c_master_init());
-    ESP_LOGI(TAG, "I2C initialized successfully");
 
     lcd_init();
     lcd_clear();
+    lcd_send_string("HELLO WORLD");
 
-    lcd_put_cur(0, 0);
-    lcd_send_string("Hello World!");
-
-    lcd_put_cur(1, 0);
-    lcd_send_string("from ESP32");
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
