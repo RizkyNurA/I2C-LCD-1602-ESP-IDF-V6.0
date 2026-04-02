@@ -81,7 +81,7 @@ void lcd_send_data(uint8_t data)
 
     for (int i = 0; i < 4; i++) {
         lcd_i2c_write(&data_t[i], 1);
-        esp_rom_delay_us(50);
+        esp_rom_delay_us(200);
     }
 }
 
@@ -297,9 +297,12 @@ void app_main(void)
 {
     ESP_ERROR_CHECK(i2c_master_init());
 
+    int a = 100;
     lcd_init();
     lcd_clear();
-    lcd_send_string("HELLO WORLD");
+    vTaskDelay(pdMS_TO_TICKS(10));
+    lcd_send_string("HELLO ");
+    lcd_send_string("WORLD");
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
